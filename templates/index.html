@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconocedor de Dígitos MNIST</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            background-color: #e9ecef;
+            color: #333;
+        }
+        h1 {
+            color: #004085;
+            margin-bottom: 30px;
+        }
+        .main-content {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 40px;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #canvasContainer {
+            border: 5px solid #007bff;
+            border-radius: 8px;
+            background-color: #000;
+            overflow: hidden;
+        }
+        #digitCanvas {
+            cursor: crosshair;
+            display: block;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 200px;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s, transform 0.1s;
+            width: 100%;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #predictBtn {
+            background-color: #28a745;
+            color: white;
+        }
+        #predictBtn:hover {
+            background-color: #218838;
+        }
+        #clearBtn {
+            background-color: #dc3545;
+            color: white;
+        }
+        #clearBtn:hover {
+            background-color: #c82333;
+        }
+        /* Estilos de botones de historial */
+        .history-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #deleteHistoryBtn, #refreshHistoryBtn { 
+            font-size: 0.9em;
+            padding: 8px 15px;
+            width: auto; 
+        }
+        #deleteHistoryBtn { 
+            background-color: #dc3545;
+            color: white;
+        }
+        #deleteHistoryBtn:hover { 
+            background-color: #c82333;
+        }
+        #refreshHistoryBtn {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        #refreshHistoryBtn:hover {
+            background-color: #e0a800;
+        }
+        
+        .results {
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            width: 300px;
+            text-align: center;
+        }
+        .predicted-digit {
+            font-size: 5em;
+            font-weight: 700;
+            color: #007bff;
+            line-height: 1;
+            margin: 10px 0;
+        }
+        /* Estilo para la imagen reconocida */
+        #recognizedImageContainer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+        #recognizedImage {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #007bff;
+            display: block;
+            margin: 10px auto;
+        }
+
+        .history-section {
+            width: 700px; 
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        /* Estilos de la tabla de Historial */
+        #historyTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        #historyTable th, #historyTable td {
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            text-align: center;
+        }
+        #historyTable th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        #historyTable tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        #historyTable tbody tr:hover {
+            background-color: #e2f0ff;
+        }
+        .confidence-cell {
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Reconocedor de Dígitos Escritos a Mano</h1>
+
+    <div class="main-content">
+        <div id="canvasContainer">
+            <canvas id="digitCanvas" width="280" height="280"></canvas>
+        </div>
+        <div class="controls">
+            <p>Dibuja un dígito con el ratón.</p>
+            <button id="predictBtn">✅ Predecir</button>
+            <button id="clearBtn">🗑️ Borrar</button>
+        </div>
+        <div class="results">
+            <h2>Resultado</h2>
+            <p>Dígito Reconocido:</p>
+            <div class="predicted-digit" id="predictionResult">?</div>
+            <p>Confianza: <span id="confidenceResult">0.00%</span></p>
+
+            <div id="recognizedImageContainer" style="display: none;">
+                <p>¡Este es el número que dibujaste!</p>
+                <img id="recognizedImage" src="" alt="Imagen dibujada" />
+            </div>
+            
+        </div>
+    </div>
+    
+    <div class="history-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h2>Historial Reciente (Últimos 10)</h2>
+            <div class="history-controls">
+                <button id="refreshHistoryBtn">🔄 Actualizar Historial</button> 
+                <button id="deleteHistoryBtn">❌ Eliminar Todo el Historial</button>
+            </div>
+        </div>
+
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>Dibujo</th> 
+                    <th>Dígito Reconocido</th>
+                    <th>Confianza</th>
+                    <th>Fecha y Hora</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                <tr>
+                    <td colspan="4">Cargando historial...</td> 
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('digitCanvas');
+        const ctx = canvas.getContext('2d');
+        const predictBtn = document.getElementById('predictBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
+        const refreshHistoryBtn = document.getElementById('refreshHistoryBtn'); 
+        const predictionResult = document.getElementById('predictionResult');
+        const confidenceResult = document.getElementById('confidenceResult');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const recognizedImage = document.getElementById('recognizedImage');
+        const recognizedImageContainer = document.getElementById('recognizedImageContainer');
+
+        ctx.lineWidth = 18;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#FFFFFF'; 
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height); 
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const currentX = clientX - rect.left;
+            const currentY = clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            [lastX, lastY] = [currentX, currentY];
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
+        });
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            [lastX, lastY] = [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+        });
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', () => isDrawing = false);
+
+        clearBtn.addEventListener('click', () => {
+            ctx.fillRect(0, 0, canvas.width, canvas.height); 
+            predictionResult.textContent = '?';
+            confidenceResult.textContent = '0.00%';
+            recognizedImageContainer.style.display = 'none';
+        });
+
+        predictBtn.addEventListener('click', () => {
+            const imageDataURL = canvas.toDataURL('image/png');
+            
+            predictBtn.disabled = true;
+            predictBtn.textContent = 'Procesando...';
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image_data: imageDataURL })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    predictionResult.textContent = data.predicted_digit;
+                    confidenceResult.textContent = `${data.confidence.toFixed(2)}%`;
+                    
+                    recognizedImage.src = imageDataURL;
+                    recognizedImageContainer.style.display = 'block';
+
+                    fetchHistory(); 
+                    
+                } else {
+                    alert('Error en la predicción: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error de conexión con el servidor: ' + error);
+            })
+            .finally(() => {
+                predictBtn.disabled = false;
+                predictBtn.textContent = '✅ Predecir';
+            });
+        });
+
+        refreshHistoryBtn.addEventListener('click', () => {
+            fetchHistory();
+        });
+
+        deleteHistoryBtn.addEventListener('click', () => {
+            if (!confirm("¿Estás seguro de que deseas ELIMINAR TODOS los registros del historial? Esta acción es irreversible.")) {
+                return;
+            }
+
+            deleteHistoryBtn.disabled = true;
+            deleteHistoryBtn.textContent = 'Eliminando...';
+
+            fetch('/delete_history', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    fetchHistory(); 
+                } else {
+                    alert('Fallo al eliminar: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error de conexión al eliminar: ' + error);
+            })
+            .finally(() => {
+                deleteHistoryBtn.disabled = false;
+                deleteHistoryBtn.textContent = '❌ Eliminar Todo el Historial';
+            });
+        });
+
+
+        // --- Función para cargar el historial ---
+        function fetchHistory() {
+            fetch('/history')
+            .then(response => response.json())
+            .then(data => {
+                historyTableBody.innerHTML = '';
+                
+                if (data.success && data.history.length > 0) {
+                    data.history.forEach(item => {
+                        
+                        let formattedDate = 'N/A';
+                        let formattedTime = 'N/A';
+                        
+                        if (item.created_at) { 
+                            const dateObj = new Date(item.created_at);
+
+                            if (!isNaN(dateObj) && dateObj.getFullYear() > 1970) {
+                                formattedDate = dateObj.toLocaleDateString('es-ES', { 
+                                    day: '2-digit', 
+                                    month: '2-digit', 
+                                    year: 'numeric' 
+                                });
+                                
+                                formattedTime = dateObj.toLocaleTimeString('es-ES', {
+                                    hour: '2-digit', 
+                                    minute:'2-digit', 
+                                    second:'2-digit'
+                                });
+                            } else if (item.created_at.length >= 19) {
+                                formattedDate = item.created_at.substring(0, 10); 
+                                formattedTime = item.created_at.substring(11, 19);
+                            }
+                        }
+                        
+                        const newRow = historyTableBody.insertRow();
+                        
+                        const imageCell = newRow.insertCell();
+                        if (item.image_base64) {
+                            const imgElement = document.createElement('img');
+                            imgElement.src = item.image_base64;
+                            imgElement.style.width = '40px'; 
+                            imgElement.style.height = '40px';
+                            imgElement.style.border = '1px solid #ccc';
+                            imageCell.appendChild(imgElement);
+                        } else {
+                            imageCell.textContent = 'N/A';
+                        }
+                        
+                        newRow.insertCell().textContent = item.digit_recognized;
+                        
+                        const confidenceCell = newRow.insertCell();
+                        confidenceCell.textContent = `${item.confidence_score}%`;
+                        confidenceCell.classList.add('confidence-cell');
+
+                        newRow.insertCell().textContent = `${formattedDate} ${formattedTime}`;
+                    });
+                } else {
+                    const newRow = historyTableBody.insertRow();
+                    const emptyCell = newRow.insertCell();
+                    emptyCell.colSpan = 4; 
+                    emptyCell.textContent = 'No hay registros de historial.';
+                }
+            })
+            .catch(error => {
+                historyTableBody.innerHTML = `<tr><td colspan="4">Error al cargar historial: ${error}</td></tr>`; 
+            });
+        }
+        
+        fetchHistory();
+
+    </script>
+</body>
+</html>

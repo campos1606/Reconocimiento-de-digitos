@@ -1,0 +1,12 @@
+Flask
+
+numpy
+
+Pillow
+
+tensorflow
+
+supabase-py
+
+python-dotenv
+gunicorn
