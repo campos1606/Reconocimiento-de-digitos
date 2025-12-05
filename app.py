@@ -9,6 +9,7 @@ from tensorflow.keras.models import load_model
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+import gc
 
 # Cargar variables de entorno
 load_dotenv()
@@ -25,6 +26,9 @@ except Exception as e:
 app = Flask(__name__)
 CORS(app) 
 MODEL = load_model('digit_recognizer_model.h5')
+
+print("Modelo cargado. Limpiando memoria...", flush=True)
+gc.collect()
 
 def preprocess_image(image_data_url):
     """
@@ -116,4 +120,5 @@ def delete_history():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
+
     app.run(debug=True)
