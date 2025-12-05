@@ -6,7 +6,8 @@ Pillow
 
 tensorflow
 
-supabase-py
+supabase
 
 python-dotenv
+
 gunicorn
